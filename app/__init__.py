@@ -1,8 +1,8 @@
 from flask import Flask
 from environs import Env
 
-from app import views
 from app.configs import database, migrations, commands
+from app import views
 
 env = Env()
 env.read_env()

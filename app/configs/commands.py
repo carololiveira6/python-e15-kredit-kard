@@ -1,75 +1,86 @@
 from flask import Flask
+from random import randint
+
 from flask.cli import AppGroup
 from click import echo, argument
-from sqlalchemy.sql.functions import user
 
 from app.models import UsersModel, CreditCardsModel
 
+from faker import Faker
+
+fake = Faker()
+
+
 def cli_user(app: Flask):
+
     cli_user_group = AppGroup("user")
     session = app.db.session
 
-
     @cli_user_group.command("create")
-    @argument("login")
-    @argument("is_admin")
-    @argument("password")
-    def create(login, password):
-        password_to_hash = password
+    @argument("quantity")
+    def create_user_cli(quantity: int) -> None:
+        for _ in range(int(quantity)):
+            user = fake.name()
+            password_fake = fake.password(length=15)
+            is_admin = False
+            response = UsersModel(login=user, password=password_fake, is_admin=is_admin)
 
-        user = UsersModel(login=login, password=password, is_admin=False)
+            session.add(response)
+            session.commit()
 
-        user.password = password_to_hash
+    app.cli.add_command(cli_user_group)  
 
-        session.add(user)
+
+    cli_admin_group = AppGroup("admin")
+    @cli_admin_group.command("create")
+    def create_admin():
+
+        user = fake.name()
+        password_fake = fake.password(length=10)
+        is_admin = True
+        response = UsersModel(login=user, password=password_fake, is_admin=is_admin)
+
+        echo("Admin criado")
+        echo(f"Login:{user}") 
+        echo(f"password:{password_fake}")
+
+        session.add(response)
         session.commit()
-        echo(
-            f"User created, Login: {user.login}, Password Hash: {user.password_hash}, Is Admin: {user.is_admin}"
-            )
 
-    @cli_user_group.command("print")
-    def to_print():
-        users = UsersModel.query.all()
-        [
-            echo(
-                f"Login: {user.login}, Password Hash: {user.password_hash}, Is Admin: {user.is_admin}"
-                ) for user in users
-        ]
+    app.cli.add_command(cli_admin_group)
 
 
-    app.cli.add_command(cli_user_group) 
+    cli_card_group = AppGroup("users_credit_cards")
+    @cli_card_group.command("create")
+    @argument("quantity")
+    def users_credit_cards(quantity: int):
 
-def cli_cards(app: Flask):
-    cli_cards_group = AppGroup("users_credit_cards")
-    session = app.db.session
+        for _ in range(int(quantity)):
 
-    @cli_cards_group.command("create")
-    @argument("expire_date")
-    @argument("provider")
-    @argument("security_code")
-    @argument("user_id")
-    def create(expire_date, provider, security_code, user_id):
+            user = fake.name()
+            password_fake = fake.password(length=15)
+            is_admin = False
+            
+            user_card = UsersModel(login=user, password=password_fake, is_admin=is_admin)
 
-        card = CreditCardsModel(expire_date=expire_date, provider=provider, security_code=security_code, user_id=user_id)
+            session.add(user_card)
+            session.commit()
 
-        session.add(card)
-        session.commit()
-        echo(
-            f"Users Credit Cards, Expire Date: {card.expire_date}, Provider: {card.provider}, Security Code: {card.security_code}, User: {card.user_id}"
-            )
+            for _ in range(randint(0, 2)):
 
-    @cli_cards_group.command("print")
-    def to_print():
-        cards = CreditCardsModel.query.all()
-        [
-            echo(
-                f"Users Credit Cards, Expire Date: {card.expire_date}, Provider: {card.provider}, Security Code: {card.security_code}, User: {card.user_id}"
-                ) for card in cards
-        ]
+                expire_date = fake.credit_card_expire()
+                number = fake.credit_card_number()
+                provider = fake.credit_card_provider()
+                security_code = fake.credit_card_security_code()[:3]  
+                user_id = user_card.id   
+                
+                card = CreditCardsModel(expire_date=expire_date, number=number, provider=provider, security_code=security_code, user_id=user_id)
 
+                session.add(card)
+                session.commit()
 
-    app.cli.add_command(cli_cards_group)
+    app.cli.add_command(cli_card_group)
+
 
 def init_app(app: Flask):
     cli_user(app)
-    cli_cards(app)
